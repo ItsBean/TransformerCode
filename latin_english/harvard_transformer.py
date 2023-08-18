@@ -375,7 +375,10 @@ class Batch:
     '''
 
     def __init__(self, src, trg=None, pad=0):
+        #
+
         self.src = src  # shape is [batch_size, seq_len],
+
         self.src_mask = (src != pad).unsqueeze(-2)  # shape is [batch_size, 1, seq_len]
         if trg is not None:
             self.trg = trg[:, :-1]  # delete the last token, this is the input of decoder e.g : [0,9]

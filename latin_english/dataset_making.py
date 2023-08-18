@@ -6,6 +6,9 @@ import numpy as np
 from torch.autograd import Variable
 from harvard_transformer import *
 
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
 # load
 tokenized_train_dataset = load_from_disk('./data/latin_english_train_tokenized')
@@ -27,6 +30,7 @@ latin_idxs_test = tokenized_test_dataset['latin_input_ids']
 latin_idxs_torch_test = torch.tensor(np.array(latin_idxs_test))
 
 
+
 # latin src mask:
 latin_src_mask_test = tokenized_test_dataset['latin_attention_mask']
 # to torch
@@ -44,12 +48,14 @@ english_idxs_torch_test = torch.tensor(np.array(english_idxs_test))
 sentence_length = len(latin_idxs_torch[0])
 current_batch_index = 0
 batch_epoch = 128
-nbatches = 50#len(latin_idxs_torch) // batch_epoch
+nbatches = 10#len(latin_idxs_torch) // batch_epoch
+epoch_num = 5
 #print param:
 print('sentence_length:', sentence_length)
 print('current_batch_index:', current_batch_index)
 print('batch_epoch:', batch_epoch)
 print('nbatches:', nbatches)
+print('device:', device)
 
 
 
@@ -104,13 +110,15 @@ class SimpleLossCompute:
 
 
 # Train the simple copy task.
+
+
 V = tokenizer.vocab_size  # vocab size
 criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)  # the cri
 model = make_model(V, V, N=2)  # create transformer
 model_opt = NoamOpt(model.src_embed[0].d_model, 1, 400,
                     torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
 
-for epoch in range(10):
+for epoch in range(epoch_num):
     model.train()
     run_epoch(data_gen(V, batch_epoch, nbatches), model,
               SimpleLossCompute(model.generator, criterion, model_opt))
@@ -167,4 +175,6 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
 model.eval()
 # src = Variable(torch.LongTensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]))  # shape is [1, 10] : one sentence, 10 words
 # src_mask = Variable(torch.ones(1, 1, 10))  # shape is [1, 1, 10] ,[batch, 1, seq_len], meaning no padding
-print(greedy_decode(model, latin_idxs_torch_test, latin_src_mask_torch_test, max_len=sentence_length, start_symbol=101))
+returned_idx = greedy_decode(model, latin_idxs_torch_test[0].unsqueeze(0), latin_src_mask_torch_test[0].unsqueeze(0), max_len=sentence_length, start_symbol=101)
+print('# returned_idx is ', returned_idx)
+print('words are:', tokenizer.decode(returned_idx[0].tolist()))
